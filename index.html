@@ -667,6 +667,14 @@ button:active {
     </button>
 
 
+    <button onclick="nuevaAventura()">
+        🕷️ Nueva aventura
+    </button>
+
+    <button onclick="terminarAventura()">
+        🏁 Terminar
+    </button>
+
     <div id="respuesta"></div>
 
 
@@ -1135,189 +1143,140 @@ function hablarRespuesta(
 
 
 /* =========================
+   ⚙️ CONFIGURACIÓN
+========================= */
+
+// 👉 CAMBIA ESTO por la URL de tu Worker de Cloudflare
+const API = "purple-mouse-88f6.jrhenalsruiz37.workers.dev
+";
+
+// Cada estudiante tiene su propio historial en su navegador
+let historial = [];
+
+
+async function llamarAPI(ruta, datos) {
+
+    const resultado = await fetch(API + ruta, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(datos || {})
+    });
+
+    const json = await resultado.json();
+
+    if (json.error) {
+        throw new Error(json.error);
+    }
+
+    return json.respuesta;
+}
+
+
+function mostrarError(error) {
+    console.error(error);
+    respuesta.textContent = "Peter tuvo un problema al responder.";
+    estado.textContent = "Hubo un error";
+    cambiarExpresion(null);
+}
+
+
+/* =========================
+   🟢 NUEVA AVENTURA
+========================= */
+
+async function nuevaAventura() {
+
+    historial = [];
+    respuesta.textContent = "";
+    estado.textContent = "🧠 Peter está pensando...";
+    cambiarExpresion("pensando");
+
+    try {
+        const texto = await llamarAPI("/iniciar");
+        historial.push({ role: "assistant", content: texto });
+        respuesta.textContent = texto;
+        estado.textContent = "🔊 Peter está hablando...";
+        hablarRespuesta(texto);
+    } catch (error) {
+        mostrarError(error);
+    }
+}
+
+
+/* =========================
+   🏁 TERMINAR AVENTURA
+========================= */
+
+function terminarAventura() {
+    historial = [];
+    speechSynthesis.cancel();
+    respuesta.textContent = "";
+    estado.textContent = "La aventura terminó. Pulsa el botón para empezar otra.";
+    cambiarExpresion(null);
+}
+
+
+/* =========================
    🎤 HABLAR CON PETER
 ========================= */
 
 function hablar() {
 
-
     const SpeechRecognition =
         window.SpeechRecognition ||
         window.webkitSpeechRecognition;
 
-
     if (!SpeechRecognition) {
-
-        alert(
-            "Tu navegador no soporta reconocimiento de voz."
-        );
-
+        alert("Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.");
         return;
-
     }
 
+    // Si todavía no hay aventura, empezar una
+    if (historial.length === 0) {
+        nuevaAventura();
+        return;
+    }
 
-    const recognition =
-        new SpeechRecognition();
+    speechSynthesis.cancel();
 
+    const recognition = new SpeechRecognition();
+    recognition.lang = "es-CO";
+    recognition.continuous = false;
+    recognition.interimResults = false;
 
-    recognition.lang =
-        "es-CO";
-
-
-    recognition.continuous =
-        false;
-
-
-    recognition.interimResults =
-        false;
-
-
-    estado.textContent =
-        "🎤 Peter está escuchando...";
-
-
-    cambiarExpresion(
-        "escuchando"
-    );
-
+    estado.textContent = "🎤 Peter está escuchando...";
+    cambiarExpresion("escuchando");
 
     recognition.start();
 
+    recognition.onresult = async function(event) {
 
-    recognition.onresult =
-        async function(event) {
+        const pregunta = event.results[0][0].transcript;
 
+        respuesta.textContent = "Tú: " + pregunta;
+        estado.textContent = "🧠 Peter está pensando...";
+        cambiarExpresion("pensando");
 
-            const pregunta =
-                event.results[0][0].transcript;
+        historial.push({ role: "user", content: pregunta });
 
+        try {
+            const texto = await llamarAPI("/preguntar", { historial: historial });
+            historial.push({ role: "assistant", content: texto });
+            respuesta.textContent = texto;
+            estado.textContent = "🔊 Peter está hablando...";
+            hablarRespuesta(texto);
+        } catch (error) {
+            historial.pop();
+            mostrarError(error);
+        }
+    };
 
-            respuesta.textContent =
-                "Tú: " +
-                pregunta;
-
-
-            estado.textContent =
-                "🧠 Peter está pensando...";
-
-
-            cambiarExpresion(
-                "pensando"
-            );
-
-
-            try {
-
-
-                const resultado =
-                    await fetch(
-                        "/preguntar",
-                        {
-
-                            method:
-                                "POST",
-
-                            headers:
-                                {
-                                    "Content-Type":
-                                        "application/json"
-                                },
-
-                            body:
-                                JSON.stringify({
-                                    pregunta:
-                                        pregunta
-                                })
-
-                        }
-                    );
-
-
-                const datos =
-                    await resultado.json();
-
-
-                if (datos.error) {
-
-                    throw new Error(
-                        datos.error
-                    );
-
-                }
-
-
-                respuesta.textContent =
-                    datos.respuesta;
-
-
-                estado.textContent =
-                    "🔊 Peter está hablando...";
-
-
-                hablarRespuesta(
-                    datos.respuesta
-                );
-
-
-            } catch (error) {
-
-
-                console.error(
-                    error
-                );
-
-
-                respuesta.textContent =
-                    "Peter tuvo un problema al responder.";
-
-
-                estado.textContent =
-                    "Hubo un error";
-
-
-                cambiarExpresion(
-                    null
-                );
-
-            }
-
-        };
-
-
-    recognition.onerror =
-        function(event) {
-
-            console.error(
-                "Error de reconocimiento:",
-                event.error
-            );
-
-
-            estado.textContent =
-                "No pude escucharte. Intenta otra vez.";
-
-
-            cambiarExpresion(
-                null
-            );
-
-        };
-
-
-    recognition.onend =
-        function() {
-
-            /*
-                No hacemos nada aquí porque
-                Peter puede estar pensando
-                o hablando.
-            */
-
-        };
-
+    recognition.onerror = function(event) {
+        console.error("Error de reconocimiento:", event.error);
+        estado.textContent = "No pude escucharte. Intenta otra vez.";
+        cambiarExpresion(null);
+    };
 }
-
 
 </script>
 
