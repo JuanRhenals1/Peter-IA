@@ -1193,7 +1193,9 @@ async function llamarAPI(ruta, datos) {
 
 function mostrarError(error) {
     console.error(error);
-    respuesta.textContent = String(error.message).includes("Rate limit")
+    respuesta.textContent = /dormido/i.test(String(error.message))
+        ? "Peter está dormido ahora mismo. Avísale a tu profe para que lo despierte."
+        : /Rate limit|demand|quota|saturad/i.test(String(error.message))
         ? "Peter está recuperando el aliento. Espera unos segundos e inténtalo de nuevo."
         : "Peter tuvo un problema al responder.";
     estado.textContent = "Hubo un error";
