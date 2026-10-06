@@ -1147,7 +1147,7 @@ function hablarRespuesta(
 ========================= */
 
 // 👉 CAMBIA ESTO por la URL de tu Worker de Cloudflare
-const API = "https://purple-mouse-88f6.jrhenalsruiz37.workers.dev";
+const API = "https://purple-mouse-88f6.jrhenalsruiz37.workers.dev".replace(/\/+$/, "");
 
 // Cada estudiante tiene su propio historial en su navegador
 let historial = [];
