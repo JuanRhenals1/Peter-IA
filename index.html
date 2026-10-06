@@ -1088,6 +1088,7 @@ function hablarRespuesta(
 
         voz.onerror =
             function(error) {
+                if (error.error === "interrupted" || error.error === "canceled") { return; }
 
                 console.error(
                     "Error de voz:",
@@ -1151,6 +1152,7 @@ const API = "https://purple-mouse-88f6.jrhenalsruiz37.workers.dev".replace(/\/+$
 
 // Cada estudiante tiene su propio historial en su navegador
 let historial = [];
+let ocupado = false;
 
 
 async function llamarAPI(ruta, datos) {
@@ -1173,7 +1175,9 @@ async function llamarAPI(ruta, datos) {
 
 function mostrarError(error) {
     console.error(error);
-    respuesta.textContent = "Peter tuvo un problema al responder.";
+    respuesta.textContent = String(error.message).includes("Rate limit")
+        ? "Peter está recuperando el aliento. Espera unos segundos e inténtalo de nuevo."
+        : "Peter tuvo un problema al responder.";
     estado.textContent = "Hubo un error";
     cambiarExpresion(null);
 }
@@ -1184,6 +1188,9 @@ function mostrarError(error) {
 ========================= */
 
 async function nuevaAventura() {
+
+    if (ocupado) { return; }
+    ocupado = true;
 
     historial = [];
     respuesta.textContent = "";
@@ -1198,6 +1205,8 @@ async function nuevaAventura() {
         hablarRespuesta(texto);
     } catch (error) {
         mostrarError(error);
+    } finally {
+        ocupado = false;
     }
 }
 
@@ -1230,6 +1239,8 @@ function hablar() {
         return;
     }
 
+    if (ocupado) { return; }
+
     // Si todavía no hay aventura, empezar una
     if (historial.length === 0) {
         nuevaAventura();
@@ -1257,6 +1268,7 @@ function hablar() {
         cambiarExpresion("pensando");
 
         historial.push({ role: "user", content: pregunta });
+        ocupado = true;
 
         try {
             const texto = await llamarAPI("/preguntar", { historial: historial });
@@ -1267,6 +1279,8 @@ function hablar() {
         } catch (error) {
             historial.pop();
             mostrarError(error);
+        } finally {
+            ocupado = false;
         }
     };
 
