@@ -1154,6 +1154,24 @@ const API = "https://purple-mouse-88f6.jrhenalsruiz37.workers.dev".replace(/\/+$
 let historial = [];
 let ocupado = false;
 
+// El historial se guarda en esta pestaña para sobrevivir a una recarga.
+// Se borra solo al cerrar la pestaña o al pulsar "Terminar".
+try {
+    const guardado = sessionStorage.getItem("peterHistorial");
+    if (guardado) {
+        historial = JSON.parse(guardado) || [];
+    }
+} catch (e) {
+    historial = [];
+    guardar();
+}
+
+function guardar() {
+    try {
+        sessionStorage.setItem("peterHistorial", JSON.stringify(historial));
+    } catch (e) {}
+}
+
 
 async function llamarAPI(ruta, datos) {
 
@@ -1193,6 +1211,8 @@ async function nuevaAventura() {
     ocupado = true;
 
     historial = [];
+
+    guardar();
     respuesta.textContent = "";
     estado.textContent = "🧠 Peter está pensando...";
     cambiarExpresion("pensando");
@@ -1200,6 +1220,7 @@ async function nuevaAventura() {
     try {
         const texto = await llamarAPI("/iniciar");
         historial.push({ role: "assistant", content: texto });
+        guardar();
         respuesta.textContent = texto;
         estado.textContent = "🔊 Peter está hablando...";
         hablarRespuesta(texto);
@@ -1217,6 +1238,7 @@ async function nuevaAventura() {
 
 function terminarAventura() {
     historial = [];
+    guardar();
     speechSynthesis.cancel();
     respuesta.textContent = "";
     estado.textContent = "La aventura terminó. Pulsa el botón para empezar otra.";
@@ -1268,16 +1290,20 @@ function hablar() {
         cambiarExpresion("pensando");
 
         historial.push({ role: "user", content: pregunta });
+
+        guardar();
         ocupado = true;
 
         try {
             const texto = await llamarAPI("/preguntar", { historial: historial });
             historial.push({ role: "assistant", content: texto });
+            guardar();
             respuesta.textContent = texto;
             estado.textContent = "🔊 Peter está hablando...";
             hablarRespuesta(texto);
         } catch (error) {
             historial.pop();
+            guardar();
             mostrarError(error);
         } finally {
             ocupado = false;
@@ -1291,6 +1317,18 @@ function hablar() {
     };
 }
 
+
+/* =========================
+   ♻️ RESTAURAR AVENTURA
+========================= */
+
+if (historial.length > 0) {
+    const ultimaDePeter = [...historial].reverse().find(m => m.role === "assistant");
+    if (ultimaDePeter) {
+        respuesta.textContent = ultimaDePeter.content;
+    }
+    estado.textContent = "Tu aventura sigue. Pulsa el botón y háblame";
+}
 </script>
 
 
